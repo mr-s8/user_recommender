@@ -240,10 +240,7 @@ class RecommendationService
         arsort($unfollowedScores, SORT_NUMERIC);
 
 
-        if ($userId == 1) {
-            LogHelper::write('allscores: ' . json_encode($allScores));
-            LogHelper::write('unfollowedScores: ' . json_encode($unfollowedScores));
-        }
+
 
         // Applying the multiplier to k; we will later draw k users at random from the slightly longer result list to get some variation/randomness
         $poolSize = (int)round($limit * $recommendationMultiplier);
@@ -284,9 +281,7 @@ class RecommendationService
 
                     // needed unfollowed users (still sorted)
                     $bestUnfollowed = array_slice($candidates, 0, $needed, true);
-                    if ($userId == 1) {
-                        LogHelper::write('best unfollowed: ' . json_encode($bestUnfollowed));
-                    }
+
 
                     // if final is not full, we can just add these users, no need to replace with other recommendations
                     if (count($final) < $limit) {
