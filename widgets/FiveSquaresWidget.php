@@ -15,7 +15,7 @@ class FiveSquaresWidget extends Widget
 {
     public function run()
     {
-        $userId = Yii::$app->user->id;
+        $userId = (int)Yii::$app->user->id;
 
         // gettings settings values
         $settingsForm = new SettingsForm();

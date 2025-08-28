@@ -7,7 +7,7 @@ class RecommendationHelper
 {
 
     // getting activity vectors per space for a user
-    public static function getActivityCountsPerSpace($userId, $spaceIds, $startTime)
+    public static function getActivityCountsPerSpace(int $userId, array $spaceIds, string $startTime)
     {
         $spaceIdsStr = implode(',', array_map('intval', $spaceIds));
 
@@ -61,7 +61,7 @@ class RecommendationHelper
         // initialising vector
         $result = [];
         foreach ($spaceIds as $spaceId) {
-            $result[$spaceId] = 0;
+            $result[(int)$spaceId] = 0;
         }
 
         // posts are weighted with 3
@@ -119,7 +119,7 @@ class RecommendationHelper
     }
 
     // saves an actibiy vector to the db
-    public static function saveUserVector($userId, array $vector)
+    public static function saveUserVector(int $userId, array $vector)
     {
     $json = json_encode($vector);
 
@@ -132,7 +132,7 @@ class RecommendationHelper
 
     
     // save recommendations to db
-    public static function saveRecommendations($userId, $recommendations, $generationId)
+    public static function saveRecommendations(int $userId, array $recommendations, int $generationId)
     {
         // del current rec
         \Yii::$app->db->createCommand()
@@ -239,6 +239,7 @@ class RecommendationHelper
 
         // add likes score
         foreach ($commonLikesVector as $spaceId => $score) {
+            $spaceId = (int)$spaceId;
             if (!isset($augmentedA[$spaceId])) $augmentedA[$spaceId] = 0.0;
             if (!isset($augmentedB[$spaceId])) $augmentedB[$spaceId] = 0.0;
             $augmentedA[$spaceId] += $score;
@@ -289,7 +290,7 @@ class RecommendationHelper
 
 
     // appends recommendations to a log table
-    public static function logRecommendations($userId, $recommendations, $generationId, $followedUserIds)
+    public static function logRecommendations(int $userId, array $recommendations, int $generationId, array $followedUserIds)
     {
         $db = \Yii::$app->db;
 
@@ -298,8 +299,8 @@ class RecommendationHelper
 
             $db->createCommand()->insert('user_recommender_recommendation_log', [
                 'user_id'             => $userId,
-                'recommended_user_id' => $recommendedUserId,
-                'score'               => $score,
+                'recommended_user_id' => (int)$recommendedUserId,
+                'score'               => (float)$score,
                 'generation_id'       => $generationId,
                 'follows'        => $isFollowing,
                 'created_at'          => new \yii\db\Expression('NOW()'),

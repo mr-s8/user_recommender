@@ -67,7 +67,7 @@ $this->title = 'User Recommender Konfiguration';
 
             <?= $form->field($model, 'fallbackTitleThreshold')
                 ->input('number', ['min' => 0])
-                ->hint('Ab wie vielen Fallback-Vorschlägen in allen generierten Vorschlägen der Widget-Titel von "Ähnliche Nutzer" zu "Interessante Nutzer" wechselt.') ?>
+                ->hint('Ab wie vielen Fallback-Vorschlägen in allen generierten Vorschlägen der Widget-Titel von "Nutzer mit ähnlichen Interessen" zu "Interessante Nutzer" wechselt.') ?>
         </fieldset>
 
         <br>
@@ -105,7 +105,7 @@ $this->title = 'User Recommender Konfiguration';
 
             <?= $form->field($model, 'unfollowedPriorityCount')
                 ->input('number', ['min' => 0])
-                ->hint('Anzahl der Empfehlungen, die bevorzugt ungefolgte Personen zeigen. Muss kleiner oder gleich der Gesamtzahl der generierten Empfehlungen sein.') ?>
+                ->hint('Anzahl generierten (nicht der direkt zu zeigenden) Empfehlungen mit bevorzugt ungefolgten Personen. Muss kleiner oder gleich der Gesamtzahl der generierten Empfehlungen sein.') ?>
 
                 <?= $form->field($model, 'unfollowedSimilarityThreshold')
                     ->input('number', ['step' => '0.01', 'min' => 0, 'max' => 1])

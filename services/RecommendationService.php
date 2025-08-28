@@ -54,33 +54,43 @@ class RecommendationService
             $lookbackTime = (new \DateTime())->modify("-{$lookbackDays} days")->format('Y-m-d H:i:s');
 
             // 1. Get all spaces
-            $spaces = Space::find()->select(['id'])->asArray()->all();
-            $spaceIds = array_column($spaces, 'id');
+           $spaces = Space::find()->select(['id'])->asArray()->all();
+            $spaceIds = [];
+            if (!empty($spaces)) {
+                // array_column liefert evtl. strings -> intval sauberstellen
+                $spaceIds = array_map('intval', array_column($spaces, 'id'));
+            }
 
             // 2. Get all users
             $users = User::find()->select(['id'])->asArray()->all();
-            $userIds = array_column($users, 'id');
+            $userIds = [];
+            if (!empty($users)) {
+                $userIds = array_map('intval', array_column($users, 'id'));
+            }
 
             // 3. Build activity vectors (UserID => [spaceId => Value, ...])
             $vectors = [];
             foreach ($userIds as $userId) {
-                // maybe apply filter here by looking at the total sum
-                $vectors[$userId] = RecommendationHelper::getActivityCountsPerSpace($userId, $spaceIds, $lookbackTime);
+                $uid = (int)$userId;
+                // force int for the key
+                $vectors[$uid] = RecommendationHelper::getActivityCountsPerSpace($uid, $spaceIds, $lookbackTime);
             }
 
             // 3b) Generate fallbacks (most active users) from the activity vectors
             self::generateFallbackRecommendations($vectors, (int)$limit, $generationId, $fallbackMultiplier);
 
 
-            // 4. Calculate Recommendations for each user pair (optimization to come)
+            // 4. Calculate Recommendations for each user pair 
             // creating a list to cache scores
             $pairScores = [];
+
             foreach ($userIds as $userId) {
+                $userId = (int)$userId;
 
                 // --- Filter inactive users ---
                 $sumActivity = array_sum($vectors[$userId]);
                 if ($sumActivity <= 0) {
-                    continue; // Keine Aktivität → keine Empfehlungen berechnen
+                    continue; 
                 }
 
 
@@ -96,9 +106,12 @@ class RecommendationService
                     ':userId' => $userId,
                     ':minRun' => max(0, $maxRun - $cooldownRuns)
                 ])->queryColumn();
+                
+                // forcing int type
+                $rejectedUserIds = !empty($rejectedUserIds) ? array_map('intval', $rejectedUserIds) : [];
 
                 // get the users the current users follows (as associative array)
-                $followedUserIds = RecommendationHelper::getFollowedUserIds($userId); 
+                $followedUserIds = RecommendationHelper::getFollowedUserIds($userId);   // this is guaranteed to return ints
 
                 // get the top k recommendations, considering the similarity threshold, the rejected users, a multiplier for k to get some variation, and the number of unfollowed users that should at least show up
                 $recommendations = self::calculateKnnRecommendations($userId, $vectors, (int)$limit, $similarityThreshold, $rejectedUserIds, $followedUserIds, $recommendationMultiplier, $spaces, $lookbackTime, $unfollowedPriorityCount, $unfollowedSimilarityThreshold, $pairScores);
@@ -141,6 +154,8 @@ class RecommendationService
     // calculating the top k recommendations for a user and his activity vector
     protected static function calculateKnnRecommendations($userId, $vectors, $limit, float $similarityThreshold, $rejectedUserIds, $followedUserIds, $recommendationMultiplier, $spaces, $lookbackTime, $unfollowedPriorityCount, $unfollowedSimilarityThreshold, &$pairScores)
     {   
+        // ensure int userId
+        $userId = (int)$userId;
 
         // getting the user activity vector
         $userVector = $vectors[$userId] ?? [];
@@ -152,10 +167,14 @@ class RecommendationService
         // comparing the user activty vector to every other user and his activity vector
         foreach ($vectors as $otherUserId => $otherVector) {
 
+            $otherUserId = (int)$otherUserId;
+
             // dont compare the user to itself
             if ($userId === $otherUserId) continue;
+            
 
-            // dont compare the user to a currenty rejected one
+
+            // dont compare the user to a currently rejected one
             if (in_array($otherUserId, $rejectedUserIds, true)) continue;
 
             // generating the pair key to check if the score has already been calculated
@@ -220,6 +239,12 @@ class RecommendationService
         arsort($allScores, SORT_NUMERIC);
         arsort($unfollowedScores, SORT_NUMERIC);
 
+
+        if ($userId == 1) {
+            LogHelper::write('allscores: ' . json_encode($allScores));
+            LogHelper::write('unfollowedScores: ' . json_encode($unfollowedScores));
+        }
+
         // Applying the multiplier to k; we will later draw k users at random from the slightly longer result list to get some variation/randomness
         $poolSize = (int)round($limit * $recommendationMultiplier);
         // account for edge cases, where the new poolsize is smaller/bigger than the dataset (?)
@@ -235,7 +260,7 @@ class RecommendationService
         // draw the first k userse from the shuffled list; this will be the preliminary result
         $final = [];
         foreach (array_slice($userIds, 0, $limit) as $uid) {
-            $final[$uid] = $allScores[$uid];
+            $final[(int)$uid] = $allScores[(int)$uid];
         }
 
         // if the admin has set a minimum requirement for the number of users not yet followed by the current user
@@ -259,32 +284,34 @@ class RecommendationService
 
                     // needed unfollowed users (still sorted)
                     $bestUnfollowed = array_slice($candidates, 0, $needed, true);
+                    if ($userId == 1) {
+                        LogHelper::write('best unfollowed: ' . json_encode($bestUnfollowed));
+                    }
 
                     // if final is not full, we can just add these users, no need to replace with other recommendations
                     if (count($final) < $limit) {
                         foreach ($bestUnfollowed as $uid => $score) {
                             if (count($final) >= $limit) break;
-                            $final[$uid] = $score;
+                            $final[(int)$uid] = $score;
                         }
                     } else {
+
                         // Replace the users with the worst scores in the preliminary result with the needed unfollowed users (best score first)
-
-
                         asort($final, SORT_NUMERIC);
 
                         // only the ones that are not already unfollowed users should be able to be replaced
                         $removable = array_diff(array_keys($final), array_keys($unfollowedScores));
 
+
                         // these are going to be replaced with the unfollowed recommendations
                         $toRemove = array_slice($removable, 0, count($bestUnfollowed), true);
-
 
                         // Replace
                         foreach ($toRemove as $uid) {
                             unset($final[$uid]);
                         }
                         foreach ($bestUnfollowed as $uid => $score) {
-                            $final[$uid] = $score;
+                            $final[(int)$uid] = $score;
                         }
                     }
                 }
@@ -293,8 +320,6 @@ class RecommendationService
         }
 
         arsort($final, SORT_NUMERIC);
-            
-    
 
         return $final;
     }
@@ -310,6 +335,7 @@ class RecommendationService
 
         $activityScores = []; 
         foreach ($vectors as $userId => $vector) {
+            $userId = (int)$userId;
             $sum = 0.0;
 
             foreach ($vector as $val) {
@@ -317,7 +343,7 @@ class RecommendationService
             }
 
             if ($sum > 0) {
-                $activityScores[(int)$userId] = $sum;
+                $activityScores[$userId] = $sum;
             }
         }
 

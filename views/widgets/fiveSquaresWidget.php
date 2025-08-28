@@ -17,7 +17,7 @@ $jsShowSurveyInfo = $showSurveyInfo ? 'true' : 'false';
         <strong id="userSuggestionsTitle"></strong>
         <?php if ($showSurveyInfo): ?>
             <a href="#" class="five-squares-info" title="Mehr Informationen">
-                <i class="fa fa-info-circle" style="color:#f1c40f; font-size:16px;"></i>
+                <i class="fa fa-info-circle" style="color:#21A1B3; font-size:16px;"></i>
             </a>
         <?php endif; ?>
     </div>
@@ -43,7 +43,7 @@ $jsShowSurveyInfo = $showSurveyInfo ? 'true' : 'false';
       <div class="modal-body">
         <p><?= Html::encode($surveyText) ?></p>
         <br>
-        <p><a href="<?= Html::encode($surveyButtonLink) ?>" target="_blank" class="btn btn-warning"><?= Html::encode($surveyButtonText) ?></a></p>
+        <p><a href="<?= Html::encode($surveyButtonLink) ?>" target="_blank" class="btn btn-info"><?= Html::encode($surveyButtonText) ?></a></p>
       </div>
     </div>
   </div>
@@ -87,15 +87,21 @@ $jsShowSurveyInfo = $showSurveyInfo ? 'true' : 'false';
     display: block;
 }
 
+/*
+uncomment if normal, unhighlighted pictures should grow as well
+.user-profile-image:hover {
+    transform: scale(1.05);
+}*/
+
 .highlighted-user {
-    border: 2px solid #f39c12; /* HumHub Orange */
-    box-shadow: 0 0 6px rgba(243, 156, 18, 0.7); /* leuchtender Effekt */
+    border: 2px solid #435f6f; /* HumHub Orange */
+    box-shadow: 0 0 6px #435f6fb3; /* leuchtender Effekt */
     border-radius: 6px; /* gleich wie Profilbilder */
     transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .highlighted-user:hover {
-    box-shadow: 0 0 10px rgba(243, 156, 18, 0.9);
+    box-shadow: 0 0 10px #435f6fe6;
     transform: scale(1.05); /* ganz leichtes Vergrößern beim Hover */
 }
 
@@ -212,7 +218,7 @@ $this->registerJs(<<<JS
 
         if (highlightIds.includes(user.id)) {
 
-            const tooltipText = "Besonders Passend"
+            const tooltipText = "Besonders passend"
 
             img.addClass('highlighted-user')
             .attr('title', tooltipText)
@@ -238,6 +244,7 @@ $this->registerJs(<<<JS
         $('#userSuggestionsTitle').text(data.title);
 
         highlightIds = data.highlight || [];
+        highlightIds = highlightIds.map(id => parseInt(id, 10));
         
         buffer = data.users.slice(data.toDisplayCount); // Rest in Buffer
 
@@ -249,8 +256,12 @@ $this->registerJs(<<<JS
     container.on('click', '.not-interested', function(e) {
         e.preventDefault();
         const item = $(this).closest('.user-suggestion-item');
-        const userId = $(this).data('user-id');
+        const userId = parseInt($(this).data('user-id'), 10);
         const generationId = item.data('generation-id');
+
+        console.log("item: ", item)
+        console.log("userid: ", userId)
+        console.log("highlightids: ", highlightIds)
 
         item.fadeOut(300, function() {
             item.remove();
@@ -267,7 +278,7 @@ $this->registerJs(<<<JS
     // log clicks on recommendations
     container.on('click', '.user-suggestion-item img', function() {
         const item = $(this).closest('.user-suggestion-item');
-        const userId = item.data('user-id');
+        const userId = parseInt($(this).data('user-id'), 10);
         const generationId = item.data('generation-id');
 
         $.post(logClickUrl, { userId, generationId, highlighted: highlightIds.includes(userId) ? 1 : 0 });

@@ -35,14 +35,14 @@ class RecommenderController extends Controller
 
        Yii::$app->response->format = Response::FORMAT_JSON;
 
-        $userId = Yii::$app->user->id;
+        $userId = (int)Yii::$app->user->id;
 
         // get value from the settings
         $settingsForm = new SettingsForm();
         $settingsForm->loadSettings();
-        $generateLimit = $settingsForm->recommendationGenerateCount;  // number of users to generate
-        $displayLimit = $settingsForm->recommendationDisplayCount; // numbers of users to show on the first page
-        $cooldownRuns = $settingsForm->rejectCooldownRuns;
+        $generateLimit = (int)$settingsForm->recommendationGenerateCount;  // number of users to generate
+        $displayLimit = (int)$settingsForm->recommendationDisplayCount; // numbers of users to show on the first page
+        $cooldownRuns = (int)$settingsForm->rejectCooldownRuns;
         $threshold     = (int)$settingsForm->fallbackTitleThreshold;
 
         //sleep(0); // for testing loading animations
@@ -57,7 +57,13 @@ class RecommenderController extends Controller
         ->limit($generateLimit)
         ->all();
 
-        
+        // be sure those are integers
+        $recommendedUsers = array_map(function($row) {
+            return [
+                'recommended_user_id' => (int)$row['recommended_user_id'],
+                'generation_id' => (int)$row['generation_id'],
+            ];
+        }, $recommendedUsers);
 
 
         $recommendationIds = array_column($recommendedUsers, 'recommended_user_id');
@@ -83,6 +89,8 @@ class RecommenderController extends Controller
                 ->andWhere(['>=', 'urg.run', max(0, $maxRun - $cooldownRuns)])
                 ->column();
 
+            $rejectedUserIds = array_map('intval', $rejectedUserIds);
+
                 
             $latestGenerationId = (new Query())
                 ->select('id')
@@ -102,15 +110,24 @@ class RecommenderController extends Controller
                 ->orderBy(['activity_score' => SORT_DESC])
                 ->limit($needed)
                 ->all();
+            
+            // typecasts
+            $fallbacks = array_map(function($row) {
+                return [
+                    'fallback_user_id' => (int)$row['fallback_user_id'],
+                    'generation_id'    => (int)$row['generation_id'],
+                    'activity_score'   => (float)$row['activity_score'], // optional float
+                ];
+            }, $fallbacks);
 
 
 
             // combining the users
             foreach ($fallbacks as $fb) {
                 $recommendedUsers[] = [
-                    'recommended_user_id' => $fb['fallback_user_id'],
-                    'generation_id'       => $fb['generation_id'],
-                    'score'               => $fb['activity_score'],
+                    'recommended_user_id' => (int)$fb['fallback_user_id'],
+                    'generation_id'       => (int)$fb['generation_id'],
+                    'score'               => (float)$fb['activity_score'],
                     'is_fallback'         => true,  
                 ];
             }
@@ -174,7 +191,7 @@ class RecommenderController extends Controller
                     ->exists();
 
                 if ($exists) {
-                    $highlightIds[] = $otherUserId;
+                    $highlightIds[] = (int)$otherUserId;
                 }
             }
         }
@@ -182,6 +199,7 @@ class RecommenderController extends Controller
 
 
         $userIds = array_column($recommendedUsers, 'recommended_user_id');
+        $userIds = array_map('intval', $userIds);
 
         $users = User::find()
         ->where(['id' => $userIds])
@@ -191,7 +209,7 @@ class RecommenderController extends Controller
 
         // collecting necessary information for the frontend
         $usersForFrontend = array_map(function($rec) use ($users) {
-            $userId = $rec['recommended_user_id'];
+            $userId = (int)$rec['recommended_user_id'];
             if (!isset($users[$userId])) {
                 return null; // skippen
             }
@@ -200,7 +218,7 @@ class RecommenderController extends Controller
                 'name' => $users[$userId]->displayName,
                 'url' => $users[$userId]->getUrl(),
                 'image' => $users[$userId]->getProfileImage()->getUrl(),
-                'generation_id' => $rec['generation_id'],
+                'generation_id' => (int)$rec['generation_id'],
             ];
         }, $recommendedUsers);
 
@@ -211,7 +229,7 @@ class RecommenderController extends Controller
         $fallbackCount = count(array_filter($recommendedUsers, fn($r) => !empty($r['is_fallback'])));
         $title = ($fallbackCount >= $threshold)
         ? Yii::t('UserRecommenderModule.base', 'Interessante Nutzer')
-        : Yii::t('UserRecommenderModule.base', 'Ähnliche Nutzer');
+        : Yii::t('UserRecommenderModule.base', 'Nutzer mit ähnlichen Interessen');
 
 
 
