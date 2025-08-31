@@ -218,7 +218,7 @@ $this->registerJs(<<<JS
 
         if (highlightIds.includes(user.id)) {
 
-            const tooltipText = "Besonders passend"
+            const tooltipText = "Viele Gemeinsamkeiten"
 
             img.addClass('highlighted-user')
             .attr('title', tooltipText)
