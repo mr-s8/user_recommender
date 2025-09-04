@@ -154,7 +154,13 @@ $this->registerJs(<<<JS
 
     
         var userRecLogClickUrl = '{$logClickUrl}';
+
+        console.log("log url ", userRecLogClickUrl)
+        
+
         var userRecremoveUrl = '{$removeUrl}';
+
+        console.log("reject url ", userRecremoveUrl)
         var UserRecommendationsUrl = '{$recommendationsUrl}';
 
         var userRecContainer = $('#userSuggestions');
@@ -181,7 +187,7 @@ $this->registerJs(<<<JS
                                 '<li><a href="#" class="not-interested" data-user-id="' + user.id + '">Nicht interessiert</a></li>' +
                             '</ul>' +
                         '</div>' +
-                        '<a href="' + user.url + '" data-pjax="0">' +
+                        '<a href="' + user.url + '" class="profile-url" data-pjax="0">' +
                             '<img class="img-rounded recommended-user-profile-image" src="' + user.image + '" width="60" height="60" alt="' + user.name + '">' +
                         '</a>' +
                     '</div>' +
@@ -239,7 +245,7 @@ $this->registerJs(<<<JS
         userRecContainer.on('click', '.not-interested', function(e) {
             e.preventDefault();
             var item = $(this).closest('.user-suggestion-item');
-            var userId = parseInt($(this).data('user-id'), 10);
+            var userId = parseInt(item.data('user-id'), 10);
             var generationId = item.data('generation-id');
 
             item.fadeOut(300, function() {
@@ -252,11 +258,14 @@ $this->registerJs(<<<JS
             });
         });
 
-        userRecContainer.on('click', '.user-suggestion-item img', function() {
+        userRecContainer.on('click', '.user-suggestion-item img', function(e) {
             var item = $(this).closest('.user-suggestion-item');
-            var userId = parseInt($(this).data('user-id'), 10);
+            var userId = parseInt(item.data('user-id'), 10);
             var generationId = item.data('generation-id');
 
+
+            console.log("inside log click function")
+            console.log(userRecLogClickUrl)
             $.post(userRecLogClickUrl, { userId, generationId, highlighted: userRecHighlightIds.includes(userId) ? 1 : 0 });
         });
 
