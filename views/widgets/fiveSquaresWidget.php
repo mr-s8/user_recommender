@@ -14,7 +14,7 @@ $jsShowSurveyInfo = $showSurveyInfo ? 'true' : 'false';
 
 <div class="panel panel-default">
     <div class="panel-heading d-flex justify-content-between align-items-center" style="display:flex; justify-content:space-between; align-items:center;">
-        <strong id="userSuggestionsTitle"></strong>
+        <div id="userSuggestionsTitle"></div>
         <?php if ($showSurveyInfo): ?>
             <a href="#" class="five-squares-info" title="Mehr Informationen">
                 <i class="fa fa-info-circle" style="color:#21A1B3; font-size:16px;"></i>
@@ -218,7 +218,18 @@ $this->registerJs(<<<JS
 
         $.get(UserRecommendationsUrl, function(data) {
             userRecSpinner.remove();
-            $('#userSuggestionsTitle').text(data.title);
+            
+             var words = data.title.split(' ');
+            if (words.length > 0) {
+                var formattedTitle = '<strong>' + words[0] + '</strong>';
+                if (words.length > 1) {
+                    formattedTitle += ' ' + words.slice(1).join(' ');
+                }
+                $('#userSuggestionsTitle').html(formattedTitle);
+            } else {
+                $('#userSuggestionsTitle').text(data.title);
+            }
+
             userRecHighlightIds = data.highlight || [];
             userRecHighlightIds = userRecHighlightIds.map(id => parseInt(id, 10));
             userRecBuffer = data.users.slice(data.toDisplayCount);

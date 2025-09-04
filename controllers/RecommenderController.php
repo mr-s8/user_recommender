@@ -228,8 +228,8 @@ class RecommenderController extends Controller
         // getting the right title for the widget depending on the number of fallback recommendations
         $fallbackCount = count(array_filter($recommendedUsers, fn($r) => !empty($r['is_fallback'])));
         $title = ($fallbackCount >= $threshold)
-        ? Yii::t('UserRecommenderModule.base', 'Interessante Nutzer')
-        : Yii::t('UserRecommenderModule.base', 'Nutzer mit ähnlichen Interessen');
+        ? Yii::t('UserRecommenderModule.base', 'Mitglieder entdecken')
+        : Yii::t('UserRecommenderModule.base', 'Mitglieder mit ähnlichen Interessen');
 
 
 
