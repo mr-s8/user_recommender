@@ -23,8 +23,7 @@ $jsShowSurveyInfo = $showSurveyInfo ? 'true' : 'false';
     </div>
     <div class="panel-body">
         <div class="user-suggestions-container" id="userSuggestions" data-buffer=''>
-                <div class="spinner" id="userSpinner">Loading...</div>
-        
+                <div class="spinner" id="recommenderUserSpinner">Loading...</div>
         </div>
     </div>
 </div>
@@ -51,9 +50,6 @@ $jsShowSurveyInfo = $showSurveyInfo ? 'true' : 'false';
 <?php endif; ?>
 
 
-
-
-
 <style>
 .user-suggestions-container {
     display: flex;
@@ -72,41 +68,38 @@ $jsShowSurveyInfo = $showSurveyInfo ? 'true' : 'false';
     box-sizing: border-box;
 }
 
-.user-image-wrapper {
+.recommended-user-image-wrapper {
     position: relative;
     width: 60px;
     height: 60px;
     margin: 0 auto;
 }
 
-
-.user-profile-image {
+.recommended-user-profile-image {
     width: 60px;
     height: 60px;
     border-radius: 6px;
     display: block;
 }
 
-/*
-uncomment if normal, unhighlighted pictures should grow as well
-.user-profile-image:hover {
+/* 
+.recommended-user-profile-image:hover {
     transform: scale(1.05);
 }*/
 
-.highlighted-user {
-    border: 2px solid #435f6f; /* HumHub Orange */
-    box-shadow: 0 0 6px #435f6fb3; /* leuchtender Effekt */
-    border-radius: 6px; /* gleich wie Profilbilder */
+.recommended-highlighted-user {
+    border: 2px solid #435f6f;
+    box-shadow: 0 0 6px #435f6fb3;
+    border-radius: 6px;
     transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 
-.highlighted-user:hover {
+.recommended-highlighted-user:hover {
     box-shadow: 0 0 10px #435f6fe6;
-    transform: scale(1.05); /* ganz leichtes Vergrößern beim Hover */
+    transform: scale(1.05);
 }
 
-/* Dropdown-Icon */
-.user-options-dropdown {
+.recommended-user-options-dropdown {
     position: absolute;
     top: 2px;
     right: 2px;
@@ -116,13 +109,12 @@ uncomment if normal, unhighlighted pictures should grow as well
     transition: opacity 0.2s ease;
 }
 
-.user-image-wrapper:hover .user-options-dropdown {
+.recommended-user-image-wrapper:hover .recommended-user-options-dropdown {
     opacity: 1;
     pointer-events: auto;
 }
 
-/* Symbol-Stil */
-.user-options-toggle {
+.recommended-user-options-toggle {
     font-size: 14px;
     color: #e74c3c;
     background: rgba(255, 255, 255, 0.8);
@@ -137,177 +129,143 @@ uncomment if normal, unhighlighted pictures should grow as well
     transition: background 0.2s ease;
 }
 
-.user-options-toggle:hover {
+.recommended-user-options-toggle:hover {
     background: #fff;
     color: #c0392b;
 }
 
-.user-name {
+.recommended-user-name {
     margin-top: 5px;
     font-size: 12px;
     word-wrap: break-word;
     white-space: normal;
 }
 
-
-#userSpinner {
+#recommenderUserSpinner {
     text-align: center;
     font-size: 14px;
     color: #999;
     margin: 10px auto;
 }
-
-
-
-
-
-
-
 </style>
 
 <?php
 $this->registerJs(<<<JS
 
-    const logClickUrl = '{$logClickUrl}';
-    const removeUrl = '{$removeUrl}';
-    const recommendationsUrl = '{$recommendationsUrl}'
-
     
-    const container = $('#userSuggestions');
-    const spinner = $('#userSpinner');
-    let buffer = []; 
+        var userRecLogClickUrl = '{$logClickUrl}';
+        var userRecremoveUrl = '{$removeUrl}';
+        var UserRecommendationsUrl = '{$recommendationsUrl}';
 
-    let highlightIds = []; 
+        var userRecContainer = $('#userSuggestions');
+        var userRecSpinner = $('#recommenderUserSpinner');
+        var userRecBuffer = []; 
+        var userRecHighlightIds = []; 
 
-
-
-    $.ajaxSetup({
-        data: {
-            [yii.getCsrfParam()]: yii.getCsrfToken()
-        }
-    });
-
-
-   
-    // creating a user element
-    function createUserElement(user) {
-        return (
-            '<div class="user-suggestion-item text-center" data-user-id="' + user.id + '" data-generation-id="' + user.generation_id + '">' +
-                '<div class="user-image-wrapper">' +
-                    '<div class="dropdown user-options-dropdown">' +
-                        '<a class="dropdown-toggle user-options-toggle" data-toggle="dropdown" href="#" title="Mehr Optionen">' +
-                            '<i class="fa fa-cog"></i>' +
-                        '</a>' +
-                        '<ul class="dropdown-menu dropdown-menu-right">' +
-                            '<li><a href="#" class="not-interested" data-user-id="' + user.id + '">Nicht interessiert</a></li>' +
-                        '</ul>' +
-                    '</div>' +
-                    '<a href="' + user.url + '" data-pjax="0">' +
-                        '<img class="img-rounded user-profile-image" src="' + user.image + '" width="60" height="60" alt="' + user.name + '">' +
-                    '</a>' +
-                '</div>' +
-                '<div class="user-name">' + user.name + '</div>' +
-            '</div>'
-        );
-    }
-
-    // appending a user to the widget
-    function appendUser(user) {
-        const el = $(createUserElement(user));
-        const img = el.find('.user-profile-image');
-
-        if (highlightIds.includes(user.id)) {
-
-            const tooltipText = "Viele Gemeinsamkeiten"
-
-            img.addClass('highlighted-user')
-            .attr('title', tooltipText)
-            .attr('data-toggle', 'tooltip')
-            .attr('data-placement', 'top');
-        }
-
-
-        container.append(el);
-
-        // init tooltip after appending; if bootstrap accessible
-        if (img.is('[data-toggle="tooltip"]') && typeof $.fn.tooltip === 'function') {
-            img.tooltip({ container: 'body' });
-        }
-    }
-
-
-
-    // loading the recommendations
-    $.get(recommendationsUrl, function(data) {
-        spinner.remove(); // Spinner weg
-
-        $('#userSuggestionsTitle').text(data.title);
-
-        highlightIds = data.highlight || [];
-        highlightIds = highlightIds.map(id => parseInt(id, 10));
-        
-        buffer = data.users.slice(data.toDisplayCount); // Rest in Buffer
-
-        // show displaycount recommendations initially
-        data.users.slice(0, data.toDisplayCount).forEach(appendUser);
-    });
-
-    // logging a click on not interested
-    container.on('click', '.not-interested', function(e) {
-        e.preventDefault();
-        const item = $(this).closest('.user-suggestion-item');
-        const userId = parseInt($(this).data('user-id'), 10);
-        const generationId = item.data('generation-id');
-
-        console.log("item: ", item)
-        console.log("userid: ", userId)
-        console.log("highlightids: ", highlightIds)
-
-        item.fadeOut(300, function() {
-            item.remove();
-            
-            $.post(removeUrl, { userId, generationId, highlighted: highlightIds.includes(userId) ? 1 : 0 });
-
-            // load a new rec from buffer
-            if (buffer.length > 0) {
-                appendUser(buffer.shift());
+        $.ajaxSetup({
+            data: {
+                [yii.getCsrfParam()]: yii.getCsrfToken()
             }
         });
-    });
 
-    // log clicks on recommendations
-    container.on('click', '.user-suggestion-item img', function() {
-        const item = $(this).closest('.user-suggestion-item');
-        const userId = parseInt($(this).data('user-id'), 10);
-        const generationId = item.data('generation-id');
-
-        $.post(logClickUrl, { userId, generationId, highlighted: highlightIds.includes(userId) ? 1 : 0 });
-        // no preventDefault
-    });
-
-
-    // closing the dropdown menu if mouse leaves a user profile image
-    container.on('mouseleave', '.user-image-wrapper', function() {
-        const dropdown = $(this).find('.dropdown');
-        if (dropdown.hasClass('open')) {
-            dropdown.removeClass('open'); // 
+        function createUserElement(user) {
+            var displayName = truncateName(user.name, 15);
+            return (
+                '<div class="user-suggestion-item text-center" data-user-id="' + user.id + '" data-generation-id="' + user.generation_id + '">' +
+                    '<div class="recommended-user-image-wrapper">' +
+                        '<div class="dropdown recommended-user-options-dropdown">' +
+                            '<a class="dropdown-toggle recommended-user-options-toggle" data-toggle="dropdown" href="#" title="Mehr Optionen">' +
+                                '<i class="fa fa-cog"></i>' +
+                            '</a>' +
+                            '<ul class="dropdown-menu dropdown-menu-right">' +
+                                '<li><a href="#" class="not-interested" data-user-id="' + user.id + '">Nicht interessiert</a></li>' +
+                            '</ul>' +
+                        '</div>' +
+                        '<a href="' + user.url + '" data-pjax="0">' +
+                            '<img class="img-rounded recommended-user-profile-image" src="' + user.image + '" width="60" height="60" alt="' + user.name + '">' +
+                        '</a>' +
+                    '</div>' +
+                    '<div class="recommended-user-name">' + displayName + '</div>' +
+                '</div>'
+            );
         }
-    });
+
+        function appendUser(user) {
+            var el = $(createUserElement(user));
+            var img = el.find('.recommended-user-profile-image');
+
+            if (userRecHighlightIds.includes(user.id)) {
+                var tooltipText = "Viele Gemeinsamkeiten";
+                img.addClass('recommended-highlighted-user')
+                   .attr('title', tooltipText)
+                   .attr('data-toggle', 'tooltip')
+                   .attr('data-placement', 'top');
+            }
+
+            userRecContainer.append(el);
+
+            if (img.is('[data-toggle="tooltip"]') && typeof $.fn.tooltip === 'function') {
+                img.tooltip({ container: 'body' });
+            }
+        }
+
+        function truncateName(name, maxLength = 15) {
+            if (name.length > maxLength) {
+                return name.substring(0, maxLength - 1) + '…';
+            }
+            return name;
+        }
+
+        $.get(UserRecommendationsUrl, function(data) {
+            userRecSpinner.remove();
+            $('#userSuggestionsTitle').text(data.title);
+            userRecHighlightIds = data.highlight || [];
+            userRecHighlightIds = userRecHighlightIds.map(id => parseInt(id, 10));
+            userRecBuffer = data.users.slice(data.toDisplayCount);
+            data.users.slice(0, data.toDisplayCount).forEach(appendUser);
+        });
+
+        userRecContainer.on('click', '.not-interested', function(e) {
+            e.preventDefault();
+            var item = $(this).closest('.user-suggestion-item');
+            var userId = parseInt($(this).data('user-id'), 10);
+            var generationId = item.data('generation-id');
+
+            item.fadeOut(300, function() {
+                item.remove();
+                $.post(userRecremoveUrl, { userId, generationId, highlighted: userRecHighlightIds.includes(userId) ? 1 : 0 });
+
+                if (userRecBuffer.length > 0) {
+                    appendUser(userRecBuffer.shift());
+                }
+            });
+        });
+
+        userRecContainer.on('click', '.user-suggestion-item img', function() {
+            var item = $(this).closest('.user-suggestion-item');
+            var userId = parseInt($(this).data('user-id'), 10);
+            var generationId = item.data('generation-id');
+
+            $.post(userRecLogClickUrl, { userId, generationId, highlighted: userRecHighlightIds.includes(userId) ? 1 : 0 });
+        });
+
+        userRecContainer.on('mouseleave', '.recommended-user-image-wrapper', function() {
+            var dropdown = $(this).find('.dropdown');
+            if (dropdown.hasClass('open')) {
+                dropdown.removeClass('open');
+            }
+        });
+
+        var showSurveyInfo = {$jsShowSurveyInfo};
+        if (showSurveyInfo) {
+            $('.five-squares-info').on('click', function(e) {
+                e.preventDefault();
+                $('#fiveSquaresSurveyModal').modal('show');
+            });
+        }
 
 
 
-    const showSurveyInfo = {$jsShowSurveyInfo}
 
-    
-    if (showSurveyInfo) {
-    $('.five-squares-info').on('click', function(e) {
-        e.preventDefault();
-        $('#fiveSquaresSurveyModal').modal('show');
-    });
-}
-
-
-    
 JS);
 ?>
-
